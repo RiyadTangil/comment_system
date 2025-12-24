@@ -2,7 +2,7 @@ const Comment = require('../models/Comment');
 
 exports.getComments = async (req, res) => {
   try {
-    const { page = 1, limit = 10, sort = 'newest' } = req.query;
+    const { page = 1, limit = 10, sort = 'newest', parentId, parentOnly } = req.query;
     
     let sortOptions = {};
     if (sort === 'newest') {
@@ -13,7 +13,35 @@ exports.getComments = async (req, res) => {
     let comments;
     let total;
 
-    if (sort === 'mostLiked' || sort === 'mostDisliked') {
+    if (parentId) {
+        comments = await Comment.find({ parentId })
+          .sort({ createdAt: -1 })
+          .skip((page - 1) * limit)
+          .limit(parseInt(limit))
+          .populate('user', 'username');
+        total = await Comment.countDocuments({ parentId });
+    } else if (parentOnly === 'true' && (sort === 'mostLiked' || sort === 'mostDisliked')) {
+        const sortField = sort === 'mostLiked' ? 'likesCount' : 'dislikesCount';
+        const aggregatePipeline = [
+            { $match: { parentId: null } },
+            { $addFields: { likesCount: { $size: "$likes" }, dislikesCount: { $size: "$dislikes" } } },
+            { $sort: { [sortField]: -1, createdAt: -1 } },
+            { $skip: (page - 1) * parseInt(limit) },
+            { $limit: parseInt(limit) },
+            { $lookup: { from: 'users', localField: 'user', foreignField: '_id', as: 'user' } },
+            { $unwind: '$user' },
+            { $project: { content: 1, parentId: 1, likes: 1, dislikes: 1, createdAt: 1, updatedAt: 1, 'user._id': 1, 'user.username': 1 } }
+        ];
+        comments = await Comment.aggregate(aggregatePipeline);
+        total = await Comment.countDocuments({ parentId: null });
+    } else if (parentOnly === 'true') {
+        comments = await Comment.find({ parentId: null })
+          .sort(sortOptions)
+          .skip((page - 1) * limit)
+          .limit(parseInt(limit))
+          .populate('user', 'username');
+        total = await Comment.countDocuments({ parentId: null });
+    } else if (sort === 'mostLiked' || sort === 'mostDisliked') {
         // Use aggregation for sorting by array size
         const sortField = sort === 'mostLiked' ? 'likesCount' : 'dislikesCount';
         

@@ -88,3 +88,52 @@ The application will be accessible at `http://localhost:5173`.
 - **Socket.io**: Real-time communication
 - **JWT**: Authentication
 - **Bcryptjs**: Password hashing
+
+## Deployment (Free)
+
+### Overview
+- Host the backend (Node/Express + Socket.io) on **Render** (free Web Service).
+- Host the frontend (React/Vite) on **Netlify** (free static hosting).
+- Use **MongoDB Atlas** for a free database.
+- Configure environment variables and CORS so sockets work across domains.
+
+### 1) Prepare MongoDB Atlas
+- Create an Atlas free cluster.
+- Create a database user and keep the connection string.
+- Allow access from 0.0.0.0/0 or your Render region.
+
+### 2) Deploy Backend to Render
+- Connect your repository in Render.
+- Create a new Web Service pointing at `server/`.
+- Set:
+  - Root Directory: `server`
+  - Build command: `npm install`
+  - Start command: `npm start`
+- Environment variables:
+  - `PORT` (Render sets this automatically)
+  - `MONGO_URI` (Atlas connection string)
+  - `JWT_SECRET` (choose a strong secret)
+  - `CLIENT_ORIGIN` (your Netlify site URL after deploy)
+- Save and deploy. Copy your backend URL (e.g. `https://your-app.onrender.com`).
+- If you see `npm ERR! enoent Could not read package.json`, Render is building the repository root. Fix by setting Root Directory to `server`, or add the included `render.yaml` blueprint and deploy from it.
+
+### 3) Deploy Frontend to Netlify
+- In Netlify, create a new site from `client/` directory.
+- Set:
+  - Build command: `npm run build`
+  - Publish directory: `dist`
+- Environment variables:
+  - `VITE_API_URL` = your Render backend URL
+  - `VITE_SOCKET_URL` = same Render backend URL
+- Deploy and copy your Netlify site URL.
+
+### 4) Update Backend CORS
+- In Render service settings, set `CLIENT_ORIGIN` to your Netlify URL and redeploy.
+
+### 5) Verify
+- Open your Netlify site, login/register, post comments.
+- Open the site in a second tab and confirm real-time updates via Socket.io.
+
+### Notes
+- Netlify hosts the static frontend; WebSockets are handled by the backend on Render.
+- Ensure `VITE_API_URL` and `VITE_SOCKET_URL` point to the backend base URL.

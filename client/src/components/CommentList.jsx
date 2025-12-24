@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import io from 'socket.io-client';
 import CommentItem from './CommentItem';
 import { toast } from 'react-hot-toast';
+import { SOCKET_URL } from '../utils/config';
 
 const CommentList = () => {
   const [comments, setComments] = useState([]);
@@ -11,40 +12,36 @@ const CommentList = () => {
   const [sort, setSort] = useState('newest');
   const [loading, setLoading] = useState(false);
 
+  const socketRef = useRef(null);
+
   useEffect(() => {
     fetchComments();
-    
-    const socket = io('http://localhost:5000');
-    
-    socket.on('newComment', (comment) => {
-        // If sorting is newest, prepend. Otherwise, refetch or insert appropriately.
-        // For simplicity and to match requirements, if we are on page 1 and sorting by newest, prepend.
-        // Or just refetch/update list.
-        if (sort === 'newest' && page === 1) {
-            setComments(prev => [comment, ...prev].slice(0, 10)); // Keep limit in check
-        } else {
-            // Optional: Show notification or refetch
-            // fetchComments();
-        }
-    });
-
-    socket.on('deleteComment', (id) => {
-        setComments(prev => prev.filter(c => c._id !== id));
-    });
-
-    socket.on('updateComment', (updatedComment) => {
-        setComments(prev => prev.map(c => c._id === updatedComment._id ? updatedComment : c));
-    });
-
-    return () => {
-      socket.disconnect();
-    };
   }, [page, sort]);
+
+  useEffect(() => {
+    socketRef.current = io(SOCKET_URL);
+    socketRef.current.on('newComment', (comment) => {
+      if (comment.parentId) return;
+      if (sort === 'newest' && page === 1) {
+        setComments(prev => [comment, ...prev].slice(0, 10));
+      }
+    });
+    socketRef.current.on('deleteComment', (id) => {
+      setComments(prev => prev.filter(c => c._id !== id));
+    });
+    socketRef.current.on('updateComment', (updatedComment) => {
+      if (updatedComment.parentId) return;
+      setComments(prev => prev.map(c => c._id === updatedComment._id ? updatedComment : c));
+    });
+    return () => {
+      socketRef.current && socketRef.current.disconnect();
+    };
+  }, []);
 
   const fetchComments = async () => {
     setLoading(true);
     try {
-      const res = await axios.get(`http://localhost:5000/api/comments?page=${page}&sort=${sort}&limit=10`);
+      const res = await axios.get(`/api/comments?parentOnly=true&page=${page}&sort=${sort}&limit=10`);
       setComments(res.data.comments);
       setTotalPages(res.data.totalPages);
     } catch (err) {
@@ -68,7 +65,7 @@ const CommentList = () => {
       ) : (
         <div className="comment-list">
           {comments.map((comment) => (
-            <CommentItem key={comment._id} comment={comment} />
+            <CommentItem key={comment._id} comment={comment} socket={socketRef.current} />
           ))}
         </div>
       )}

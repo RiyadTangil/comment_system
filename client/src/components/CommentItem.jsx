@@ -2,11 +2,13 @@ import { useState } from 'react';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
 import { toast } from 'react-hot-toast';
+import ReplyList from './ReplyList';
 
-const CommentItem = ({ comment }) => {
+const CommentItem = ({ comment, socket }) => {
   const { user } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [editContent, setEditContent] = useState(comment.content);
+  const [showReplies, setShowReplies] = useState(false);
 
   const isOwner = user && user.id === comment.user._id;
   const liked = comment.likes.includes(user?.id);
@@ -14,7 +16,7 @@ const CommentItem = ({ comment }) => {
 
   const handleLike = async () => {
     try {
-      await axios.put(`http://localhost:5000/api/comments/${comment._id}/like`);
+      await axios.put(`/api/comments/${comment._id}/like`);
     } catch (err) {
       toast.error(err.response?.data?.msg || 'Action failed');
     }
@@ -22,7 +24,7 @@ const CommentItem = ({ comment }) => {
 
   const handleDislike = async () => {
     try {
-      await axios.put(`http://localhost:5000/api/comments/${comment._id}/dislike`);
+      await axios.put(`/api/comments/${comment._id}/dislike`);
     } catch (err) {
       toast.error(err.response?.data?.msg || 'Action failed');
     }
@@ -31,7 +33,7 @@ const CommentItem = ({ comment }) => {
   const handleDelete = async () => {
     if (window.confirm('Are you sure you want to delete this comment?')) {
       try {
-        await axios.delete(`http://localhost:5000/api/comments/${comment._id}`);
+        await axios.delete(`/api/comments/${comment._id}`);
         toast.success('Comment deleted');
       } catch (err) {
         toast.error(err.response?.data?.msg || 'Delete failed');
@@ -41,7 +43,7 @@ const CommentItem = ({ comment }) => {
 
   const handleUpdate = async () => {
     try {
-      await axios.put(`http://localhost:5000/api/comments/${comment._id}`, { content: editContent });
+      await axios.put(`/api/comments/${comment._id}`, { content: editContent });
       setIsEditing(false);
       toast.success('Comment updated');
     } catch (err) {
@@ -85,6 +87,9 @@ const CommentItem = ({ comment }) => {
           Dislike ({comment.dislikes.length})
         </button>
         
+        <button onClick={() => setShowReplies(s => !s)}>
+          {showReplies ? 'Hide Replies' : 'Reply'}
+        </button>
         {isOwner && (
           <>
             <button onClick={() => setIsEditing(true)}>Edit</button>
@@ -92,6 +97,7 @@ const CommentItem = ({ comment }) => {
           </>
         )}
       </div>
+      <ReplyList parentId={comment._id} socket={socket} show={showReplies} />
     </div>
   );
 };

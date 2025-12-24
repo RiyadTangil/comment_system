@@ -12,7 +12,7 @@ const AddComment = () => {
 
     setLoading(true);
     try {
-      await axios.post('http://localhost:5000/api/comments', { content });
+      await axios.post('/api/comments', { content });
       setContent('');
       toast.success('Comment posted');
     } catch (err) {

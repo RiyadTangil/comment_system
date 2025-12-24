@@ -244,3 +244,25 @@ body {
   color: #f87171;
   margin-bottom: 10px;
 }
+
+.replies {
+  margin-top: 12px;
+  padding-left: 18px;
+  border-left: 2px solid var(--border);
+}
+.reply-form textarea {
+  width: 100%;
+  min-height: 80px;
+  padding: 10px 12px;
+  margin-bottom: 10px;
+  color: var(--text);
+  background: #0b1220;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+.reply-list .comment-item {
+  margin-top: 10px;
+}
+.muted {
+  color: var(--muted);
+}
