@@ -9,7 +9,8 @@ dotenv.config();
 
 const app = express();
 const server = http.createServer(app);
-const CLIENT_ORIGIN = process.env.CLIENT_ORIGIN || 'https://commentclint.netlify.app' || "http://localhost:5173";
+const CLIENT_ORIGIN = process.env.CLIENT_ORIGIN  || "http://localhost:5173";
+// const CLIENT_ORIGIN = process.env.CLIENT_ORIGIN || 'https://commentclint.netlify.app' || "http://localhost:5173";
 const io = new Server(server, {
   cors: {
     origin: CLIENT_ORIGIN,
