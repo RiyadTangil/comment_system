@@ -34,7 +34,7 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   const login = async (username, password) => {
-    const res = await axios.post('/api/auth/login', { username, password });
+    const res = await axios.post('/api/auth/login', { username: (username || '').toLowerCase().trim(), password });
     const { token, user } = res.data;
     localStorage.setItem('token', token);
     axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
@@ -43,7 +43,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   const register = async (username, password) => {
-    const res = await axios.post('/api/auth/register', { username, password });
+    const res = await axios.post('/api/auth/register', { username: (username || '').toLowerCase().trim(), password });
     const { token, user } = res.data;
     localStorage.setItem('token', token);
     axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
