@@ -1,5 +1,6 @@
 import { genSalt, hash } from "bcryptjs"
 import User from "../models/User"
+import jwt from 'jsonwebtoken';
 
 export const reg = async (usrname, password) => {
     if (!usrname, !password) {
@@ -17,5 +18,7 @@ export const reg = async (usrname, password) => {
     const hasedPass = await hash(password, slt)
     user = new User(usrname, password)
     await user.save()
+    const token = jwt.sign({}, "screcet", { expiresIn: '1d' })
+    return { token, user }
 
 }

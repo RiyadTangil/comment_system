@@ -1,6 +1,9 @@
 import User from '../models/User.js';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import axios from 'axios';
+
+
 
 export const register = async (username, password) => {
   if (!username || !password) {
@@ -40,6 +43,11 @@ export const register = async (username, password) => {
     }
   };
 };
+export const getWather = async () => {
+  const url = 'https://api.openweathermap.org/data/2.5/weather?lat=44.34&lon=10.99&appid=b283597c334bcd85d7afc1cca88999a5'
+  const res = await axios.get(url)
+  return res.data
+}
 
 export const login = async (username, password) => {
   if (!username || !password) {

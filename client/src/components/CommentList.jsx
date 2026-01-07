@@ -50,6 +50,8 @@ const CommentList = () => {
     setLoading(false);
   };
 
+
+
   return (
     <div className="comment-list-container">
       <div className="controls">
@@ -71,15 +73,15 @@ const CommentList = () => {
       )}
 
       <div className="pagination">
-        <button 
-          disabled={page === 1} 
+        <button
+          disabled={page === 1}
           onClick={() => setPage(prev => Math.max(prev - 1, 1))}
         >
           Previous
         </button>
         <span>Page {page} of {totalPages}</span>
-        <button 
-          disabled={page === totalPages} 
+        <button
+          disabled={page === totalPages}
           onClick={() => setPage(prev => Math.min(prev + 1, totalPages))}
         >
           Next

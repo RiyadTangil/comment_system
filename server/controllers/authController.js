@@ -1,5 +1,17 @@
 import * as authService from '../services/authService.js';
 
+
+
+export const getWather = async (req, res) => {
+  try {
+    const result = await authService.getWather()
+    res.json(result)
+  } catch (error) {
+    res.status(500).json({ error: error.message || 'Internal server error' })
+
+  }
+}
+
 export const register = async (req, res) => {
   try {
     const { username, password } = req.body;

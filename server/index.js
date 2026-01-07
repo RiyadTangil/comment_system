@@ -49,6 +49,7 @@ app.use('/api/comments', commentRoutes);
 
 app.get('/', (req, res) => {
   res.send('API is running...');
+
 });
 
 // Make io accessible in routes
