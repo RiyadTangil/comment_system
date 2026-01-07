@@ -1,15 +1,17 @@
-const express = require('express');
-const mongoose = require('mongoose');
-const cors = require('cors');
-const dotenv = require('dotenv');
-const http = require('http');
-const { Server } = require('socket.io');
+import express from 'express';
+import mongoose from 'mongoose';
+import cors from 'cors';
+import dotenv from 'dotenv';
+import http from 'http';
+import { Server } from 'socket.io';
+import authRoutes from './routes/auth.js';
+import commentRoutes from './routes/comments.js';
 
 dotenv.config();
 
 const app = express();
 const server = http.createServer(app);
-const CLIENT_ORIGIN = process.env.CLIENT_ORIGIN  || "http://localhost:5173";
+const CLIENT_ORIGIN = process.env.CLIENT_ORIGIN || "http://localhost:5173";
 // const CLIENT_ORIGIN = process.env.CLIENT_ORIGIN || 'https://commentclint.netlify.app' || "http://localhost:5173";
 const io = new Server(server, {
   cors: {
@@ -40,9 +42,6 @@ io.on('connection', (socket) => {
     console.log('User disconnected', socket.id);
   });
 });
-
-const authRoutes = require('./routes/auth');
-const commentRoutes = require('./routes/comments');
 
 // Routes
 app.use('/api/auth', authRoutes);

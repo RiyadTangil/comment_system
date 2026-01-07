@@ -1,100 +1,9 @@
-const Comment = require('../models/Comment');
+import * as commentService from '../services/commentService.js';
 
-exports.getComments = async (req, res) => {
+export const getComments = async (req, res) => {
   try {
-    const { page = 1, limit = 10, sort = 'newest', parentId, parentOnly } = req.query;
-    
-    let sortOptions = {};
-    if (sort === 'newest') {
-      sortOptions = { createdAt: -1 };
-    } 
-    // Note: Sorting by array length (mostLiked/mostDisliked) requires aggregation
-    
-    let comments;
-    let total;
-
-    if (parentId) {
-        comments = await Comment.find({ parentId })
-          .sort({ createdAt: -1 })
-          .skip((page - 1) * limit)
-          .limit(parseInt(limit))
-          .populate('user', 'username');
-        total = await Comment.countDocuments({ parentId });
-    } else if (parentOnly === 'true' && (sort === 'mostLiked' || sort === 'mostDisliked')) {
-        const sortField = sort === 'mostLiked' ? 'likesCount' : 'dislikesCount';
-        const aggregatePipeline = [
-            { $match: { parentId: null } },
-            { $addFields: { likesCount: { $size: "$likes" }, dislikesCount: { $size: "$dislikes" } } },
-            { $sort: { [sortField]: -1, createdAt: -1 } },
-            { $skip: (page - 1) * parseInt(limit) },
-            { $limit: parseInt(limit) },
-            { $lookup: { from: 'users', localField: 'user', foreignField: '_id', as: 'user' } },
-            { $unwind: '$user' },
-            { $project: { content: 1, parentId: 1, likes: 1, dislikes: 1, createdAt: 1, updatedAt: 1, 'user._id': 1, 'user.username': 1 } }
-        ];
-        comments = await Comment.aggregate(aggregatePipeline);
-        total = await Comment.countDocuments({ parentId: null });
-    } else if (parentOnly === 'true') {
-        comments = await Comment.find({ parentId: null })
-          .sort(sortOptions)
-          .skip((page - 1) * limit)
-          .limit(parseInt(limit))
-          .populate('user', 'username');
-        total = await Comment.countDocuments({ parentId: null });
-    } else if (sort === 'mostLiked' || sort === 'mostDisliked') {
-        // Use aggregation for sorting by array size
-        const sortField = sort === 'mostLiked' ? 'likesCount' : 'dislikesCount';
-        
-        const aggregatePipeline = [
-            {
-                $addFields: {
-                    likesCount: { $size: "$likes" },
-                    dislikesCount: { $size: "$dislikes" }
-                }
-            },
-            { $sort: { [sortField]: -1, createdAt: -1 } },
-            { $skip: (page - 1) * parseInt(limit) },
-            { $limit: parseInt(limit) },
-            // Populate user details
-            {
-                $lookup: {
-                    from: 'users',
-                    localField: 'user',
-                    foreignField: '_id',
-                    as: 'user'
-                }
-            },
-            { $unwind: '$user' },
-             // Project necessary fields to match standard find output structure
-            {
-                $project: {
-                    content: 1,
-                    parentId: 1,
-                    likes: 1,
-                    dislikes: 1,
-                    createdAt: 1,
-                    updatedAt: 1,
-                    'user._id': 1,
-                    'user.username': 1
-                }
-            }
-        ];
-
-        comments = await Comment.aggregate(aggregatePipeline);
-        
-        // Count total for pagination (separate query as aggregation count is complex)
-        total = await Comment.countDocuments();
-        
-    } else {
-        // Standard find for newest
-        comments = await Comment.find()
-          .sort(sortOptions)
-          .skip((page - 1) * limit)
-          .limit(parseInt(limit))
-          .populate('user', 'username');
-          
-        total = await Comment.countDocuments();
-    }
+    const { page = 1, limit = 10 } = req.query;
+    const { comments, total } = await commentService.getComments(req.query);
 
     res.json({
       comments,
@@ -107,18 +16,12 @@ exports.getComments = async (req, res) => {
   }
 };
 
-exports.addComment = async (req, res) => {
+export const addComment = async (req, res) => {
   try {
     const { content, parentId } = req.body;
-    
-    const newComment = new Comment({
-      content,
-      user: req.user.id,
-      parentId: parentId || null
-    });
+    const userId = req.user.id;
 
-    const savedComment = await newComment.save();
-    const populatedComment = await savedComment.populate('user', 'username');
+    const populatedComment = await commentService.addComment(userId, content, parentId);
 
     // Emit real-time event
     const io = req.app.get('socketio');
@@ -130,115 +33,63 @@ exports.addComment = async (req, res) => {
   }
 };
 
-exports.deleteComment = async (req, res) => {
+export const deleteComment = async (req, res) => {
   try {
-    const comment = await Comment.findById(req.params.id);
+    await commentService.deleteComment(req.params.id, req.user.id);
 
-    if (!comment) {
-      return res.status(404).json({ msg: 'Comment not found' });
-    }
-
-    // Check if user is authorized
-    if (comment.user.toString() !== req.user.id) {
-      return res.status(401).json({ msg: 'User not authorized' });
-    }
-
-    await comment.deleteOne();
-    
     const io = req.app.get('socketio');
     io.emit('deleteComment', req.params.id);
 
     res.json({ msg: 'Comment removed' });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    const statusCode = err.statusCode || 500;
+    const response = statusCode === 500 ? { error: err.message } : { msg: err.message };
+    res.status(statusCode).json(response);
   }
 };
 
-exports.updateComment = async (req, res) => {
-    try {
-        const { content } = req.body;
-        const comment = await Comment.findById(req.params.id);
+export const updateComment = async (req, res) => {
+  try {
+    const { content } = req.body;
+    const populatedComment = await commentService.updateComment(req.params.id, req.user.id, content);
 
-        if (!comment) {
-            return res.status(404).json({ msg: 'Comment not found' });
-        }
+    const io = req.app.get('socketio');
+    io.emit('updateComment', populatedComment);
 
-        if (comment.user.toString() !== req.user.id) {
-            return res.status(401).json({ msg: 'User not authorized' });
-        }
-
-        comment.content = content;
-        await comment.save();
-
-        const populatedComment = await comment.populate('user', 'username');
-        
-        const io = req.app.get('socketio');
-        io.emit('updateComment', populatedComment);
-
-        res.json(populatedComment);
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
+    res.json(populatedComment);
+  } catch (err) {
+    const statusCode = err.statusCode || 500;
+    const response = statusCode === 500 ? { error: err.message } : { msg: err.message };
+    res.status(statusCode).json(response);
+  }
 };
 
-exports.likeComment = async (req, res) => {
-    try {
-        const comment = await Comment.findById(req.params.id);
-        if (!comment) {
-            return res.status(404).json({ msg: 'Comment not found' });
-        }
+export const likeComment = async (req, res) => {
+  try {
+    const populatedComment = await commentService.likeComment(req.params.id, req.user.id);
 
-        // Check if already liked
-        if (comment.likes.includes(req.user.id)) {
-            return res.status(400).json({ msg: 'Comment already liked' });
-        }
+    const io = req.app.get('socketio');
+    io.emit('updateComment', populatedComment);
 
-        // Remove from dislikes if present
-        if (comment.dislikes.includes(req.user.id)) {
-            comment.dislikes.pull(req.user.id);
-        }
-
-        comment.likes.push(req.user.id);
-        await comment.save();
-        
-        const populatedComment = await comment.populate('user', 'username');
-
-        const io = req.app.get('socketio');
-        io.emit('updateComment', populatedComment);
-
-        res.json(populatedComment);
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
+    res.json(populatedComment);
+  } catch (err) {
+    const statusCode = err.statusCode || 500;
+    const response = statusCode === 500 ? { error: err.message } : { msg: err.message };
+    res.status(statusCode).json(response);
+  }
 };
 
-exports.dislikeComment = async (req, res) => {
-    try {
-        const comment = await Comment.findById(req.params.id);
-        if (!comment) {
-            return res.status(404).json({ msg: 'Comment not found' });
-        }
+export const dislikeComment = async (req, res) => {
+  try {
+    const populatedComment = await commentService.dislikeComment(req.params.id, req.user.id);
 
-        // Check if already disliked
-        if (comment.dislikes.includes(req.user.id)) {
-            return res.status(400).json({ msg: 'Comment already disliked' });
-        }
+    const io = req.app.get('socketio');
+    io.emit('updateComment', populatedComment);
 
-        // Remove from likes if present
-        if (comment.likes.includes(req.user.id)) {
-            comment.likes.pull(req.user.id);
-        }
-
-        comment.dislikes.push(req.user.id);
-        await comment.save();
-
-        const populatedComment = await comment.populate('user', 'username');
-
-        const io = req.app.get('socketio');
-        io.emit('updateComment', populatedComment);
-
-        res.json(populatedComment);
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
+    res.json(populatedComment);
+  } catch (err) {
+    const statusCode = err.statusCode || 500;
+    const response = statusCode === 500 ? { error: err.message } : { msg: err.message };
+    res.status(statusCode).json(response);
+  }
 };

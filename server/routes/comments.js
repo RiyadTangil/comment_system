@@ -1,7 +1,8 @@
-const express = require('express');
+import express from 'express';
+import * as commentController from '../controllers/commentController.js';
+import auth from '../middleware/authMiddleware.js';
+
 const router = express.Router();
-const commentController = require('../controllers/commentController');
-const auth = require('../middleware/authMiddleware');
 
 // Public route to view comments
 router.get('/', commentController.getComments);
@@ -13,4 +14,4 @@ router.put('/:id', auth, commentController.updateComment);
 router.put('/:id/like', auth, commentController.likeComment);
 router.put('/:id/dislike', auth, commentController.dislikeComment);
 
-module.exports = router;
+export default router;
